@@ -1,0 +1,105 @@
+---
+title: "MachinePeerGraded"
+author: "Prajwal Dutta"
+date: "10/21/2020"
+output: html_document
+---
+
+## Summary
+
+Nowadays with accelerometers wecan get accccurate data on how people exercise.This project we want to use data of 6 participants for such analysis.
+
+
+## Preprocessing 
+
+Loading training and testing sets 
+
+```{r DataLoading, message = FALSE}
+library(caret)
+setwd("C:/Users/MAHE/Documents/Archit/R progs/Practical-Machine-Learning")
+trainURL <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testURL <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+traini <- read.csv(url(trainURL))
+testi <- read.csv(url(testURL))
+label<- createDataPartition(traini$classe, p = 0.7, list = FALSE)
+trainpraj <- traini[label, ]
+testpraj <- traini[-label, ]
+```
+
+We remove NA variable 
+
+```{r DataCleaning}
+NZ<- nearZeroVar(trainpraj)
+trainpraj<- trainpraj[ ,-NZ]
+testpraj <- testpraj[ ,-NZ]
+label<- apply(trainpraj, 2, function(x) mean(is.na(x))) > 0.95
+trainpraj <- trainpraj[, -which(label, label== FALSE)]
+testpraj <- testpraj[, -which(label, label == FALSE)]
+trainpraj <- trainpraj[ , -(1:5)]
+testpraj <- testpraj[ , -(1:5)]
+```
+
+## Exploratory analysis
+
+We nowlook atcorrelation plot. 
+
+```{r CorrelationPlot, fig.width=10, fig.height=9}
+library(corrplot)
+corrMat <- cor(trainpraj[,-54])
+corrplot(corrMat, method = "color", type = "lower", tl.cex = 0.7, tl.col = rgb(0,0,0))
+```
+
+plot above shows that the darker area has more ccorelation than rest
+
+## Prediction Models
+
+We need Decision Tree, Random Forest and Generalized Boosted model, methods to model our training set 
+
+### Decision Tree
+
+```{r DecisionTree, message = FALSE, warning = FALSE, fig.width=15, fig.height=10}
+library(rpart)
+library(rpart.plot)
+library(rattle)
+set.seed(13908)
+modelpraj <- rpart(classe ~ ., data = trainpraj, method = "class")
+fancyRpartPlot(modelpraj)
+predictpraj <- predict(modelpraj, testpraj, type = "class")
+confMatD <- confusionMatrix(predictpraj, testpraj$classe)
+confMatD
+```
+
+### Random Forest
+
+```{r RandomForest, message = FALSE}
+library(caret)
+set.seed(13908)
+control <- trainControl(method = "cv", number = 3, verboseIter=FALSE)
+modelpra <- train(classe ~ ., data = trainpraj, method = "rf", trControl = control)
+modelpra$finalModel
+predictpra <- predict(modelpra, testpraj)
+confMatR <- confusionMatrix(predictpra, testpraj$classe)
+confMatR
+```
+
+### Generalized Boosted Model
+
+```{r GBM, message = FALSE}
+library(caret)
+set.seed(13908)
+control <- trainControl(method = "repeatedcv", number = 5, repeats = 1, verboseIter = FALSE)
+modelpr <- train(classe ~ ., data = trainpraj, trControl = control, method = "gbm", verbose = FALSE)
+modelpr$finalModel
+predictpr <- predict(modelpr, testpraj)
+confMatGB <- confusionMatrix(predictpr, testpraj$classe)
+confMatGB
+```
+
+Random forest is selected
+
+## Test set outputs
+
+```{r TestSetPrediction, messages = FALSE}
+predictpra <- predict(modelpra, testi)
+predictpra
+```
